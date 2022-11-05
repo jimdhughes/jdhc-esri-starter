@@ -42,7 +42,7 @@ export class ArcmapComponent implements AfterViewInit {
   async init() {
     try {
       this.map = new Map({
-        basemap: 'hybrid'
+        basemap: 'osm'
       });
       this.mapView = new MapView({
         map: this.map,
@@ -71,8 +71,10 @@ export class ArcmapComponent implements AfterViewInit {
     const searchWidget = new Search({
       view: this.mapView
     });
+    const layerListWidget = new LayerList({view:this.mapView});
     this.mapView.ui.add(new Expand({ view: this.mapView, content: searchWidget }), 'top-right');
     this.mapView.ui.add(new Expand({ view: this.mapView, content: basemapWidget }), 'top-right');
+    this.mapView.ui.add(new Expand({ view: this.mapView, content: layerListWidget }), 'top-right');
     this.mapView.ui.add(locateWidget, 'top-right');
   }
 
