@@ -1,28 +1,29 @@
-import { Component, OnInit, ViewChild, ElementRef, HostListener } from '@angular/core';
-import { loadModules } from 'esri-loader';
-import esri = __esri;
+import { Component, OnInit, ViewChild, ElementRef, HostListener, AfterViewInit } from '@angular/core';
 import { ArcmapService, MeasurementType, Point } from '../services/arcmap.service';
+import MapView from '@arcgis/core/views/MapView';
+import Map from '@arcgis/core/Map';
+import Expand from '@arcgis/core/widgets/Expand';
+import Locate from '@arcgis/core/widgets/Locate';
+import BasemapGallery from '@arcgis/core/widgets/BasemapGallery';
+import LayerList from '@arcgis/core/widgets/LayerList';
+import Search from '@arcgis/core/widgets/Search';
+import * as reactiveUtils from '@arcgis/core/core/reactiveUtils';
 
 @Component({
   selector: 'app-arcmap',
   templateUrl: './arcmap.component.html',
   styleUrls: ['./arcmap.component.scss']
 })
-export class ArcmapComponent implements OnInit {
+export class ArcmapComponent implements AfterViewInit {
   @ViewChild('arcmap', { static: false })
   private arcMapRef: ElementRef;
-  mapView: esri.MapView;
-  map: esri.Map;
-  measurementWidget: esri.AreaMeasurement2D | esri.DistanceMeasurement2D;
+  mapView: MapView;
+  map: Map;
   currentMeasurementType: MeasurementType;
 
   constructor(private arcMapService: ArcmapService) {}
-
-  ngOnInit() {
+  ngAfterViewInit() {
     this.init();
-    this.arcMapService.measurementEmitter.subscribe(measurement => {
-      this.toggleMeasurementWidget(measurement);
-    });
     this.arcMapService.zoomEmitter.subscribe((zoom: number) => {
       console.log('settnig zoom: ' + zoom);
       this.mapView.zoom = zoom;
@@ -40,7 +41,6 @@ export class ArcmapComponent implements OnInit {
 
   async init() {
     try {
-      const [Map, MapView] = await loadModules(['esri/Map', 'esri/views/MapView']);
       this.map = new Map({
         basemap: 'hybrid'
       });
@@ -63,12 +63,7 @@ export class ArcmapComponent implements OnInit {
   }
 
   async initWidgets() {
-    const [Search, BasemapGallery, Expand, Locate] = await loadModules([
-      'esri/widgets/Search',
-      'esri/widgets/BasemapGallery',
-      'esri/widgets/Expand',
-      'esri/widgets/Locate'
-    ]);
+
     const locateWidget = new Locate({
       view: this.mapView
     });
@@ -81,40 +76,10 @@ export class ArcmapComponent implements OnInit {
     this.mapView.ui.add(locateWidget, 'top-right');
   }
 
-  async toggleMeasurementWidget(type: 'area' | 'perimiter') {
-    if (this.currentMeasurementType === type) {
-      return;
-    }
-    this.currentMeasurementType = type;
-    if (this.measurementWidget) {
-      this.measurementWidget.viewModel.clearMeasurement();
-      this.mapView.ui.remove(this.measurementWidget);
-    }
-    if (type === 'area' || type === 'perimiter') {
-      const [AreaMeasurement2D] = await loadModules(['esri/widgets/AreaMeasurement2D']);
-      this.measurementWidget = new AreaMeasurement2D({
-        view: this.mapView
-      });
-    } else if (type === 'distance') {
-      const [DistanceMeasurement2D] = await loadModules(['esri/widgets/DistanceMeasurement2D']);
-      this.measurementWidget = new DistanceMeasurement2D({
-        view: this.mapView
-      });
-    } else if (type === 'none') {
-      console.log('stopping measurement');
-      this.measurementWidget.viewModel.clearMeasurement();
-      this.measurementWidget.destroy();
-      this.mapView.ui.remove(this.measurementWidget);
-      return;
-    }
-
-    this.measurementWidget.viewModel.newMeasurement();
-    this.mapView.ui.add(this.measurementWidget, 'bottom-right');
-  }
-
   async initWatchers() {
-    const [watchUtils] = await loadModules(['esri/core/watchUtils']);
-    watchUtils.whenTrue(this.mapView, 'stationary', () => {
+    reactiveUtils.when(
+      ()=>this.mapView.stationary, 
+      () => {
       const { center, zoom } = this.mapView;
       if (
         center &&
